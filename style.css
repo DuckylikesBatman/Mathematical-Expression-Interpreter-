@@ -1,0 +1,305 @@
+/* ── Reset ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0b1220;
+  color: #d1f7e0;
+  font-family: "Courier New", monospace;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ═══ LEFT column ════════════════════════════════════════ */
+#left {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  position: relative;   /* needed for overlay positioning */
+}
+
+#canvasWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+canvas {
+  background: #081018;
+  border-radius: 12px;
+  box-shadow: 0 0 30px rgba(0, 255, 150, 0.12);
+  display: block;
+}
+
+.hint {
+  font-size: 12px;
+  color: #3a6450;
+  letter-spacing: 0.5px;
+}
+
+/* ═══ Game Overlays ══════════════════════════════════════ */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 12, 20, 0.93);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+  border-radius: 8px;
+}
+
+.overlay.hidden { display: none; }
+
+.overlay-box {
+  text-align: center;
+  padding: 40px 44px;
+  background: #0f1c2e;
+  border: 1px solid #1a3a2a;
+  border-radius: 16px;
+  box-shadow: 0 0 40px rgba(0, 255, 150, 0.1);
+  max-width: 400px;
+  width: 90%;
+}
+
+.big-icon { font-size: 60px; margin-bottom: 12px; line-height: 1; }
+
+.overlay-box h1 {
+  font-size: 28px;
+  color: #6ef2b2;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+
+.sub {
+  font-size: 13px;
+  color: #4a7a60;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.star { color: #ffd700; }
+
+.key-list {
+  list-style: none;
+  text-align: left;
+  display: inline-block;
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 2;
+  color: #8dc9a5;
+}
+
+kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  background: #1a2f3d;
+  border: 1px solid #2a5a40;
+  border-radius: 4px;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  color: #00ff99;
+  margin-right: 8px;
+  min-width: 50px;
+  text-align: center;
+}
+
+.start-btn {
+  margin-top: 8px;
+  padding: 11px 32px;
+  font-size: 15px;
+  font-weight: bold;
+  background: #00c77a;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: "Courier New", monospace;
+  letter-spacing: 1px;
+  transition: background 0.15s;
+}
+.start-btn:hover { background: #00ff99; }
+
+.win-box h1  { color: #ffd700; }
+.win-stats   { font-size: 14px; color: #8dc9a5; margin: 14px 0 20px; line-height: 2; }
+.win-stats b { color: #00ff99; }
+
+/* ═══ RIGHT column ═══════════════════════════════════════ */
+#right {
+  width: 370px;
+  padding: 14px 14px 14px 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel {
+  background: #121826;
+  padding: 13px 15px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,255,150,0.04);
+}
+
+.panel h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #6ef2b2;
+  margin-bottom: 10px;
+}
+
+.panel-hint { font-size: 11px; color: #3a6450; margin-bottom: 8px; }
+
+/* ── Status ───────────────────────────────────────────── */
+#status { font-size: 12px; line-height: 2; }
+#status b { color: #00ff99; }
+.pen-dn { color: #00ff99; }
+.pen-up { color: #ff5555; }
+
+/* ── Expression evaluator ─────────────────────────────── */
+.expr-row {
+  display: flex;
+  gap: 8px;
+}
+
+#exprInput {
+  flex: 1;
+  background: #0b1220;
+  color: #00ff99;
+  border: 1px solid #1a3a2a;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+}
+#exprInput:focus { outline: 1px solid #00c77a; }
+
+#exprResult {
+  margin-top: 8px;
+  font-size: 16px;
+  min-height: 22px;
+  letter-spacing: 0.5px;
+}
+.expr-ok  b { color: #00ff99; }
+.expr-err   { color: #ff7070; font-size: 12px; }
+
+/* ── Textarea ─────────────────────────────────────────── */
+textarea {
+  width: 100%;
+  height: 108px;
+  background: #0b1220;
+  color: #00ff99;
+  border: 1px solid #1a3a2a;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+#sql { height: 52px; }
+textarea:focus { outline: 1px solid #00c77a; }
+
+/* ── Buttons ──────────────────────────────────────────── */
+.btn-row { display: flex; gap: 7px; margin-top: 8px; }
+
+button {
+  padding: 6px 13px;
+  border: none;
+  background: #00c77a;
+  color: #000;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  font-weight: bold;
+}
+button:hover  { background: #00ff99; }
+button.sec    { background: #1a3328; color: #6ef2b2; }
+button.sec:hover { background: #274d3c; }
+
+/* ── Error ────────────────────────────────────────────── */
+#errOut {
+  margin-top: 7px;
+  font-size: 12px;
+  color: #ff7070;
+  word-break: break-word;
+  min-height: 0;
+}
+
+/* ── Token badges ─────────────────────────────────────── */
+#tokenOut {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 20px;
+}
+
+.tok {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  background: #1a2f3d;
+  color: #8fd4a8;
+  white-space: nowrap;
+}
+.tok small { color: #4a8a60; font-size: 9px; }
+
+.tok-forward,.tok-backward,.tok-left,.tok-right,
+.tok-penup,.tok-pendown,.tok-repeat,.tok-reset {
+  background: #0d2f1e; color: #4ef5a2;
+}
+.tok-plus,.tok-minus,.tok-star,.tok-slash {
+  background: #2a1a30; color: #d9a8f5;
+}
+.tok-lparen,.tok-rparen,.tok-lbracket,.tok-rbracket {
+  background: #2a2510; color: #f5d85e;
+}
+.tok-number  { background: #1a2040; color: #7ab8f5; }
+.tok-newline { background: #1e1e1e; color: #444; }
+
+/* ── AST output ───────────────────────────────────────── */
+#astOut {
+  font-size: 11.5px;
+  color: #a8d8bc;
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 190px;
+  overflow-y: auto;
+  min-height: 20px;
+  line-height: 1.55;
+}
+
+/* ── Move log ─────────────────────────────────────────── */
+.log {
+  font-size: 12px;
+  max-height: 90px;
+  overflow-y: auto;
+  color: #4ec48a;
+}
+.log div {
+  padding: 1px 0;
+  border-bottom: 1px solid #0d1f14;
+}
+
+/* ── SQL table ────────────────────────────────────────── */
+#sqlOut { margin-top: 8px; font-size: 11px; overflow-x: auto; }
+#sqlOut table  { border-collapse: collapse; width: 100%; }
+#sqlOut th,
+#sqlOut td     { padding: 4px 8px; border: 1px solid #1a3a2a; text-align: left; white-space: nowrap; }
+#sqlOut th     { background: #0d2018; color: #6ef2b2; }
+#sqlOut tr:hover td { background: #0f1f16; }
+#sqlOut em     { color: #3a6450; font-size: 12px; }
+.err           { color: #ff7070; }
+.muted         { color: #2a4a38; font-size: 12px; font-style: normal; }
+
+/* ── Scrollbars ───────────────────────────────────────── */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0b1220; }
+::-webkit-scrollbar-thumb { background: #1a3a2a; border-radius: 3px; }
