@@ -1,9 +1,24 @@
 "use strict";
 // Depends on: lexer.js, parser.js, evaluator.js, turtle.js, database.js
 
+// ── Example programs ─────────────────────────────────────
+const EXAMPLES = {
+  default: `FORWARD(100)\nRIGHT(90)\nFORWARD(50 + 50)\nLEFT(45 * 2)\nREPEAT(4)[\n  FORWARD(60)\n  RIGHT(90)\n]`,
+  square: `# Draw a square using a variable for side length\nSET side = 120\nREPEAT(4)[\n  FORWARD(side)\n  RIGHT(90)\n]`,
+  triangle: `# Equilateral triangle\nSET side = 110\nREPEAT(3)[\n  FORWARD(side)\n  RIGHT(120)\n]`,
+  star: `# 5-pointed star\nREPEAT(5)[\n  FORWARD(120)\n  RIGHT(144)\n]`,
+  spiral: `# Growing spiral using a variable\nSET n = 10\nREPEAT(18)[\n  FORWARD(n)\n  RIGHT(90)\n  SET n = n + 8\n]`,
+  rainbow: `# Rainbow square – pen changes colour each side\nSET side = 90\nPENCOLOR(0)\nFORWARD(side)\nRIGHT(90)\nPENCOLOR(60)\nFORWARD(side)\nRIGHT(90)\nPENCOLOR(210)\nFORWARD(side)\nRIGHT(90)\nPENCOLOR(300)\nFORWARD(side)`,
+  polygon: `# Regular polygon – change sides to any number\nSET sides = 6\nSET len   = 70\nSET turn  = 360 / sides\nREPEAT(sides)[\n  FORWARD(len)\n  RIGHT(turn)\n]`,
+  modulo: `# Modulo demo: alternate pen up/down every other move\nSET i = 0\nREPEAT(10)[\n  SET i = i + 1\n  FORWARD(40)\n  RIGHT(36)\n]`,
+};
+
+// ── Persistent symbol table – survives between runs ──────
+const globalEnv = {};
+
 // ── Game State ───────────────────────────────────────────
-let gameState  = 'start';   // 'start' | 'playing' | 'win'
-let moveCount  = 0;
+let gameState = 'start';
+let moveCount = 0;
 
 // Wire the turtle callback: runs after every completed move
 setMoveCallback((cmd, val, fromKeyboard) => {
@@ -11,6 +26,7 @@ setMoveCallback((cmd, val, fromKeyboard) => {
     moveCount = 0;
     document.getElementById('log').innerHTML = '';
     updateStatus();
+    updateVarsPanel();
     return;
   }
   moveCount++;
@@ -69,7 +85,6 @@ document.addEventListener('keydown', e => {
   if (document.activeElement.tagName === 'TEXTAREA' ||
       document.activeElement.tagName === 'INPUT') return;
   if (animBusy) return;
-
   switch (e.key) {
     case 'ArrowUp':    case 'w': queueMove(TT.FORWARD,  30, true); break;
     case 'ArrowDown':  case 's': queueMove(TT.BACKWARD, 30, true); break;
@@ -90,8 +105,10 @@ function run() {
   try {
     const tokens = new Lexer(src).tokenize();
     const ast    = new Parser(tokens).parse();
-    const ev     = new Evaluator((cmd, val) => queueMove(cmd, val, false));
+    // Pass the shared env so variables persist across runs
+    const ev = new Evaluator((cmd, val) => queueMove(cmd, val, false), globalEnv);
     ev.eval(ast);
+    updateVarsPanel();
   } catch (e) {
     showError(e.message);
   }
@@ -133,13 +150,14 @@ function evalExpression() {
   try {
     const tokens = new Lexer(src).tokenize();
     const p      = new Parser(tokens);
-    const ast    = p.expr();                        // parse as pure expression
+    const ast    = p.expr();
     if (p.cur.type !== TT.EOF)
       throw new Error('Unexpected token after expression');
+    // Use globalEnv so variables defined in the interpreter are accessible
     const result = new Evaluator(() => {
       throw new Error('Commands not allowed in expression mode');
-    }).eval(ast);
-    out.innerHTML = `= <b>${result}</b>`;
+    }, globalEnv).eval(ast);
+    out.innerHTML = `= <b>${+result.toFixed(6)}</b>`;
     out.className = 'expr-ok';
   } catch (e) {
     out.textContent = '⚠ ' + e.message;
@@ -147,9 +165,26 @@ function evalExpression() {
   }
 }
 
-// Allow Enter key in expr input
 document.getElementById('exprInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') evalExpression();
+});
+
+// ── Examples dropdown ────────────────────────────────────
+document.getElementById('exampleSelect').addEventListener('change', e => {
+  const key = e.target.value;
+  if (key && EXAMPLES[key]) {
+    document.getElementById('code').value = EXAMPLES[key];
+    e.target.value = '';   // reset so same option can be re-selected
+  }
+});
+
+// ── Speed slider ─────────────────────────────────────────
+document.getElementById('speed').addEventListener('input', e => {
+  // slider 1 (slow=400ms) … 10 (fast=30ms)
+  const ms = Math.round(430 - e.target.value * 40);
+  setAnimSpeed(ms);
+  document.getElementById('speedLabel').textContent =
+    e.target.value <= 3 ? 'Slow' : e.target.value >= 8 ? 'Fast' : 'Normal';
 });
 
 // ── SQL Panel ────────────────────────────────────────────
@@ -163,8 +198,8 @@ function runSQL() {
       return;
     }
     const { columns, values } = res[0];
-    const head  = `<thead><tr>${columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead>`;
-    const body  = `<tbody>${values.map(row =>
+    const head = `<thead><tr>${columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead>`;
+    const body = `<tbody>${values.map(row =>
       `<tr>${row.map(v=>`<td>${v??'NULL'}</td>`).join('')}</tr>`
     ).join('')}</tbody>`;
     document.getElementById('sqlOut').innerHTML = `<table>${head}${body}</table>`;
@@ -175,17 +210,41 @@ function runSQL() {
 
 // ── UI helpers ───────────────────────────────────────────
 function updateStatus() {
+  const hue   = turtle.penHue;
+  const swatch = `<span class="pen-swatch" style="background:hsl(${hue},100%,55%)" title="Pen hue ${hue}°"></span>`;
   document.getElementById('status').innerHTML =
     `X: <b>${turtle.x.toFixed(1)}</b> &nbsp; ` +
     `Y: <b>${turtle.y.toFixed(1)}</b> &nbsp; ` +
     `Angle: <b>${turtle.angle.toFixed(0)}°</b> &nbsp; ` +
-    `Pen: <b class="${turtle.penDown ? 'pen-dn' : 'pen-up'}">${turtle.penDown ? 'DOWN' : 'UP'}</b> &nbsp; ` +
-    `Moves: <b>${moveCount}</b>`;
+    `Pen: <b class="${turtle.penDown ? 'pen-dn' : 'pen-up'}">${turtle.penDown ? 'DOWN' : 'UP'}</b> ` +
+    `${swatch} &nbsp; Moves: <b>${moveCount}</b>`;
+}
+
+function updateVarsPanel() {
+  const el   = document.getElementById('varsOut');
+  const keys = Object.keys(globalEnv);
+  if (!keys.length) {
+    el.innerHTML = '<em class="muted">No variables defined</em>';
+    return;
+  }
+  el.innerHTML = keys.map(k => {
+    const v = globalEnv[k];
+    return `<div class="var-row">
+      <span class="var-name">${k}</span>
+      <span class="var-eq">=</span>
+      <span class="var-val">${+v.toFixed(4)}</span>
+    </div>`;
+  }).join('');
 }
 
 function logMove(cmd, val) {
   const el  = document.getElementById('log');
-  const txt = val !== null ? `${cmd}(${+val.toFixed(2)})` : cmd;
+  let txt;
+  if (cmd === 'SETPOS' && val && typeof val === 'object') {
+    txt = `SETPOS(${val.x.toFixed(1)}, ${val.y.toFixed(1)})`;
+  } else {
+    txt = val !== null ? `${cmd}(${+val.toFixed(2)})` : cmd;
+  }
   el.innerHTML = `<div>${txt}</div>` + el.innerHTML;
 }
 
@@ -200,5 +259,6 @@ function clearOutput() {
 }
 
 // ── Init ─────────────────────────────────────────────────
-draw();          // draw static turtle on start screen
+draw();
 updateStatus();
+updateVarsPanel();

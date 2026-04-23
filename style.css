@@ -17,7 +17,7 @@ body {
   justify-content: center;
   align-items: center;
   padding: 24px;
-  position: relative;   /* needed for overlay positioning */
+  position: relative;
 }
 
 #canvasWrap {
@@ -129,7 +129,7 @@ kbd {
 
 /* ═══ RIGHT column ═══════════════════════════════════════ */
 #right {
-  width: 370px;
+  width: 380px;
   padding: 14px 14px 14px 0;
   overflow-y: auto;
   display: flex;
@@ -152,7 +152,16 @@ kbd {
   margin-bottom: 10px;
 }
 
+.panel-sub  { color: #3a6450; font-size: 10px; letter-spacing: 0; text-transform: none; }
 .panel-hint { font-size: 11px; color: #3a6450; margin-bottom: 8px; }
+
+code {
+  background: #0b1e16;
+  color: #6ef2b2;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
 
 /* ── Status ───────────────────────────────────────────── */
 #status { font-size: 12px; line-height: 2; }
@@ -160,11 +169,18 @@ kbd {
 .pen-dn { color: #00ff99; }
 .pen-up { color: #ff5555; }
 
-/* ── Expression evaluator ─────────────────────────────── */
-.expr-row {
-  display: flex;
-  gap: 8px;
+.pen-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.2);
+  vertical-align: middle;
+  margin-left: 2px;
 }
+
+/* ── Expression evaluator ─────────────────────────────── */
+.expr-row { display: flex; gap: 8px; }
 
 #exprInput {
   flex: 1;
@@ -186,6 +202,61 @@ kbd {
 }
 .expr-ok  b { color: #00ff99; }
 .expr-err   { color: #ff7070; font-size: 12px; }
+
+/* ── Examples dropdown ────────────────────────────────── */
+.example-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ex-label {
+  font-size: 11px;
+  color: #3a6450;
+  white-space: nowrap;
+}
+
+#exampleSelect {
+  flex: 1;
+  background: #0b1220;
+  color: #6ef2b2;
+  border: 1px solid #1a3a2a;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+  cursor: pointer;
+}
+#exampleSelect:focus { outline: 1px solid #00c77a; }
+
+/* ── Speed slider ─────────────────────────────────────── */
+.speed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.speed-lbl {
+  font-size: 11px;
+  color: #3a6450;
+  white-space: nowrap;
+}
+
+#speed {
+  flex: 1;
+  accent-color: #00c77a;
+  height: 4px;
+  cursor: pointer;
+}
+
+.speed-val {
+  font-size: 11px;
+  color: #6ef2b2;
+  min-width: 42px;
+  text-align: right;
+}
 
 /* ── Textarea ─────────────────────────────────────────── */
 textarea {
@@ -217,8 +288,8 @@ button {
   font-size: 12px;
   font-weight: bold;
 }
-button:hover  { background: #00ff99; }
-button.sec    { background: #1a3328; color: #6ef2b2; }
+button:hover     { background: #00ff99; }
+button.sec       { background: #1a3328; color: #6ef2b2; }
 button.sec:hover { background: #274d3c; }
 
 /* ── Error ────────────────────────────────────────────── */
@@ -229,6 +300,21 @@ button.sec:hover { background: #274d3c; }
   word-break: break-word;
   min-height: 0;
 }
+
+/* ── Variables panel ──────────────────────────────────── */
+#varsOut { min-height: 20px; }
+
+.var-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid #0d1f14;
+  font-size: 12px;
+}
+.var-name { color: #f5d85e; min-width: 60px; }
+.var-eq   { color: #3a6450; }
+.var-val  { color: #00ff99; }
 
 /* ── Token badges ─────────────────────────────────────── */
 #tokenOut {
@@ -252,16 +338,21 @@ button.sec:hover { background: #274d3c; }
 .tok small { color: #4a8a60; font-size: 9px; }
 
 .tok-forward,.tok-backward,.tok-left,.tok-right,
-.tok-penup,.tok-pendown,.tok-repeat,.tok-reset {
+.tok-penup,.tok-pendown,.tok-pencolor,
+.tok-repeat,.tok-reset,.tok-set,.tok-setpos {
   background: #0d2f1e; color: #4ef5a2;
 }
-.tok-plus,.tok-minus,.tok-star,.tok-slash {
+.tok-plus,.tok-minus,.tok-star,.tok-slash,.tok-percent {
   background: #2a1a30; color: #d9a8f5;
 }
 .tok-lparen,.tok-rparen,.tok-lbracket,.tok-rbracket {
   background: #2a2510; color: #f5d85e;
 }
+.tok-comma,.tok-equals {
+  background: #251a10; color: #f5b85e;
+}
 .tok-number  { background: #1a2040; color: #7ab8f5; }
+.tok-ident   { background: #201a10; color: #f5d85e; }
 .tok-newline { background: #1e1e1e; color: #444; }
 
 /* ── AST output ───────────────────────────────────────── */
@@ -288,7 +379,31 @@ button.sec:hover { background: #274d3c; }
   border-bottom: 1px solid #0d1f14;
 }
 
-/* ── SQL table ────────────────────────────────────────── */
+/* ── SQL panel ────────────────────────────────────────── */
+.sql-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.sql-hint {
+  font-size: 10px;
+  color: #3a6450;
+}
+
+.sql-chip {
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: normal;
+  background: #0d2018;
+  color: #4ec48a;
+  border: 1px solid #1a3a2a;
+  border-radius: 4px;
+}
+.sql-chip:hover { background: #152a20; color: #00ff99; }
+
 #sqlOut { margin-top: 8px; font-size: 11px; overflow-x: auto; }
 #sqlOut table  { border-collapse: collapse; width: 100%; }
 #sqlOut th,

@@ -7,17 +7,20 @@ const W = canvas.width;
 const H = canvas.height;
 
 // ── State ────────────────────────────────────────────────
-let turtle        = { x: W/2, y: H/2, angle: 0, penDown: true };
-let trail         = [];          // [{x1,y1,x2,y2}]
-let goal          = null;        // {x,y} or null
+let turtle = { x: W/2, y: H/2, angle: 0, penDown: true, penHue: 145 };
+let trail  = [];          // [{x1,y1,x2,y2,hue}]
+let goal   = null;        // {x,y} or null
+
 let animQueue     = [];
 let animBusy      = false;
 let turtleWalking = false;
 let renderLoop    = null;
+let animDuration  = 200;  // ms per move step (changed by speed slider)
 
-// Callback set by main.js after each completed move
+// Callback invoked by main.js after each completed move
 let _onMoveComplete = () => {};
 function setMoveCallback(fn) { _onMoveComplete = fn; }
+function setAnimSpeed(ms)    { animDuration = ms; }
 
 // ── Render Loop ──────────────────────────────────────────
 function startRenderLoop() {
@@ -55,14 +58,12 @@ function _drawGoal(x, y) {
   ctx.translate(x, y);
   ctx.scale(pulse, pulse);
 
-  // Glow halo
   const grd = ctx.createRadialGradient(0,0,0, 0,0,32);
   grd.addColorStop(0, 'rgba(255,215,0,0.35)');
   grd.addColorStop(1, 'rgba(255,215,0,0)');
   ctx.beginPath(); ctx.arc(0, 0, 32, 0, Math.PI*2);
   ctx.fillStyle = grd; ctx.fill();
 
-  // 5-pointed star
   ctx.beginPath();
   for (let i = 0; i < 10; i++) {
     const r   = i % 2 === 0 ? 17 : 7;
@@ -85,13 +86,15 @@ function _drawGoal(x, y) {
 
 function _drawTrail() {
   if (!trail.length) return;
-  ctx.lineWidth   = 2;
-  ctx.strokeStyle = '#00ff99';
-  ctx.shadowColor = '#00ff99';
-  ctx.shadowBlur  = 5;
+  ctx.lineWidth = 2;
   for (const s of trail) {
+    const color = `hsl(${s.hue ?? 145}, 100%, 60%)`;
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = 5;
     ctx.beginPath();
-    ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2);
+    ctx.moveTo(s.x1, s.y1);
+    ctx.lineTo(s.x2, s.y2);
     ctx.stroke();
   }
   ctx.shadowBlur = 0;
@@ -113,13 +116,10 @@ function _drawTurtle(x, y, angle) {
   ctx.fillStyle = '#4a7a3a'; ctx.fill();
   ctx.restore();
 
-  // Back legs (closer to tail)
   _leg(-7, -9,  0.65 + walk * 0.4);
   _leg(-7,  9, -0.65 - walk * 0.4);
-
-  // Front legs (closer to head)
-  _leg( 7, -9, -0.5 + walk * 0.4);
-  _leg( 7,  9,  0.5 - walk * 0.4);
+  _leg( 7, -9, -0.5  + walk * 0.4);
+  _leg( 7,  9,  0.5  - walk * 0.4);
 
   // Shell – base
   ctx.beginPath();
@@ -143,8 +143,8 @@ function _drawTurtle(x, y, angle) {
   for (let i=0; i<6; i++) {
     const a = i * Math.PI / 3;
     i===0
-      ? ctx.moveTo(Math.cos(a)*6,  Math.sin(a)*5)
-      : ctx.lineTo(Math.cos(a)*6,  Math.sin(a)*5);
+      ? ctx.moveTo(Math.cos(a)*6, Math.sin(a)*5)
+      : ctx.lineTo(Math.cos(a)*6, Math.sin(a)*5);
   }
   ctx.closePath(); ctx.stroke();
   for (let i=0; i<6; i++) {
@@ -165,14 +165,10 @@ function _drawTurtle(x, y, angle) {
   ctx.shadowBlur  = 5;
   ctx.fill();
   ctx.shadowBlur = 0;
-
-  // Eye
   ctx.beginPath(); ctx.arc(3, -1.5, 1.8, 0, Math.PI*2);
   ctx.fillStyle = '#0a0a0a'; ctx.fill();
   ctx.beginPath(); ctx.arc(3.7, -2.1, 0.6, 0, Math.PI*2);
   ctx.fillStyle = '#ffffff'; ctx.fill();
-
-  // Nostril
   ctx.beginPath(); ctx.arc(6.2, 0.5, 0.6, 0, Math.PI*2);
   ctx.fillStyle = '#1a3d14'; ctx.fill();
   ctx.restore();
@@ -211,23 +207,44 @@ function _nextStep() {
 function _executeStep({ cmd, val, fromKeyboard }) {
   const px = turtle.x, py = turtle.y;
 
+  // Linear movement (FORWARD / BACKWARD)
   if (cmd === TT.FORWARD || cmd === TT.BACKWARD) {
     const sign = cmd === TT.FORWARD ? 1 : -1;
     const rad  = turtle.angle * Math.PI / 180;
     const nx   = px + sign * Math.cos(rad) * val;
     const ny   = py + sign * Math.sin(rad) * val;
-
-    // Soft-clamp to canvas so turtle stays visible
-    turtle.x = Math.max(15, Math.min(W - 15, nx));
-    turtle.y = Math.max(15, Math.min(H - 15, ny));
-
+    turtle.x   = Math.max(15, Math.min(W-15, nx));
+    turtle.y   = Math.max(15, Math.min(H-15, ny));
     turtleWalking = true;
-    _animateTo(px, py, turtle.x, turtle.y, 260, () => {
+    _animateTo(px, py, turtle.x, turtle.y, animDuration, () => {
       turtleWalking = false;
-      if (turtle.penDown) trail.push({ x1: px, y1: py, x2: turtle.x, y2: turtle.y });
+      if (turtle.penDown) trail.push({ x1:px, y1:py, x2:turtle.x, y2:turtle.y, hue:turtle.penHue });
       _onMoveComplete(cmd, val, fromKeyboard);
       _nextStep();
     });
+    return;
+  }
+
+  // Absolute positioning (SETPOS)
+  if (cmd === 'SETPOS') {
+    const nx = Math.max(15, Math.min(W-15, val.x));
+    const ny = Math.max(15, Math.min(H-15, val.y));
+    turtleWalking = true;
+    _animateTo(px, py, nx, ny, animDuration, () => {
+      turtleWalking = false;
+      turtle.x = nx; turtle.y = ny;
+      if (turtle.penDown) trail.push({ x1:px, y1:py, x2:nx, y2:ny, hue:turtle.penHue });
+      _onMoveComplete(cmd, val, fromKeyboard);
+      _nextStep();
+    });
+    return;
+  }
+
+  // Pen color (changes hue for future trail segments)
+  if (cmd === TT.PENCOLOR) {
+    turtle.penHue = ((Math.round(val) % 360) + 360) % 360;
+    _onMoveComplete(cmd, val, fromKeyboard);
+    _nextStep();
     return;
   }
 
@@ -245,7 +262,7 @@ function _animateTo(x1, y1, x2, y2, ms, cb) {
   const t0 = performance.now();
   function step(now) {
     const p  = Math.min((now - t0) / ms, 1);
-    const ep = p < 0.5 ? 2*p*p : -1 + (4 - 2*p) * p;   // ease-in-out
+    const ep = p < 0.5 ? 2*p*p : -1 + (4 - 2*p) * p;  // ease-in-out
     turtle.x = x1 + (x2 - x1) * ep;
     turtle.y = y1 + (y2 - y1) * ep;
     if (p < 1) requestAnimationFrame(step);
@@ -258,7 +275,7 @@ function _hardReset() {
   animQueue     = [];
   animBusy      = false;
   turtleWalking = false;
-  turtle        = { x: W/2, y: H/2, angle: 0, penDown: true };
+  turtle        = { x: W/2, y: H/2, angle: 0, penDown: true, penHue: 145 };
   trail         = [];
   _onMoveComplete(TT.RESET, null, false);
 }

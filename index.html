@@ -38,7 +38,7 @@
   <div id="winOverlay" class="overlay hidden">
     <div class="overlay-box win-box">
       <div class="big-icon">⭐</div>
-      <h1>Goal Reached!</h1>
+      <h1>Goal Reac hed!</h1>
       <div id="winStats" class="win-stats"></div>
       <button class="start-btn" onclick="playAgain()">▶ Play Again</button>
     </div>
@@ -55,10 +55,10 @@
     <div id="status"></div>
   </div>
 
-  <!-- Expression evaluator – core interpreter requirement -->
+  <!-- Expression evaluator -->
   <div class="panel">
     <h3>Expression Evaluator</h3>
-    <p class="panel-hint">Type any math expression and press Eval or Enter</p>
+    <p class="panel-hint">Supports <code>+ - * / % ( )</code> and defined variables</p>
     <div class="expr-row">
       <input id="exprInput" type="text" placeholder="(5 + 3) * 2.5 / (8 - 4)" spellcheck="false" />
       <button onclick="evalExpression()">Eval</button>
@@ -69,6 +69,23 @@
   <!-- Turtle interpreter -->
   <div class="panel">
     <h3>Turtle Interpreter</h3>
+
+    <!-- Examples dropdown -->
+    <div class="example-row">
+      <label class="ex-label">Examples:</label>
+      <select id="exampleSelect">
+        <option value="">— load a program —</option>
+        <option value="default">Default</option>
+        <option value="square">Square (variable)</option>
+        <option value="triangle">Triangle</option>
+        <option value="star">5-pointed Star</option>
+        <option value="spiral">Growing Spiral</option>
+        <option value="rainbow">Rainbow Square</option>
+        <option value="polygon">Regular Polygon</option>
+        <option value="modulo">Modulo Demo</option>
+      </select>
+    </div>
+
     <textarea id="code" spellcheck="false">FORWARD(100)
 RIGHT(90)
 FORWARD(50 + 50)
@@ -77,12 +94,26 @@ REPEAT(4)[
   FORWARD(60)
   RIGHT(90)
 ]</textarea>
+
+    <!-- Speed slider -->
+    <div class="speed-row">
+      <span class="speed-lbl">Speed</span>
+      <input type="range" id="speed" min="1" max="10" value="6">
+      <span id="speedLabel" class="speed-val">Normal</span>
+    </div>
+
     <div class="btn-row">
       <button onclick="run()">▶ Run</button>
       <button class="sec" onclick="showTokens()">Tokens</button>
       <button class="sec" onclick="showAST()">AST</button>
     </div>
     <div id="errOut"></div>
+  </div>
+
+  <!-- Variables panel – live symbol table -->
+  <div class="panel">
+    <h3>Variables &nbsp;<span class="panel-sub">(symbol table)</span></h3>
+    <div id="varsOut"><em class="muted">No variables defined</em></div>
   </div>
 
   <!-- Lexical analysis output -->
@@ -106,6 +137,12 @@ REPEAT(4)[
   <!-- SQL panel -->
   <div class="panel">
     <h3>SQL Query</h3>
+    <div class="sql-examples">
+      <span class="sql-hint">Try: </span>
+      <button class="sql-chip" onclick="setSql('SELECT * FROM moves ORDER BY id DESC LIMIT 10;')">Last 10 moves</button>
+      <button class="sql-chip" onclick="setSql('SELECT action, COUNT(*) as total FROM moves GROUP BY action ORDER BY total DESC;')">Move counts</button>
+      <button class="sql-chip" onclick="setSql('SELECT * FROM sessions;')">Sessions</button>
+    </div>
     <textarea id="sql" spellcheck="false">SELECT * FROM moves ORDER BY id DESC LIMIT 10;</textarea>
     <div class="btn-row">
       <button onclick="runSQL()">Run SQL</button>
@@ -115,13 +152,18 @@ REPEAT(4)[
 
 </div>
 
-<!-- Load modules in dependency order -->
 <script src="js/lexer.js"></script>
 <script src="js/parser.js"></script>
 <script src="js/evaluator.js"></script>
 <script src="js/turtle.js"></script>
 <script src="js/database.js"></script>
 <script src="js/main.js"></script>
+<script>
+  function setSql(q) {
+    document.getElementById('sql').value = q;
+    runSQL();
+  }
+</script>
 
 </body>
 </html>
