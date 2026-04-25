@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pandoc --version)",
+      "Bash(pandoc report_source.md -o \"Mathematical Expression Interpreter Report.docx\")"
+    ]
+  }
+}
