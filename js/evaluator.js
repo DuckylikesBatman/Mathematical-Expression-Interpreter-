@@ -127,6 +127,38 @@ class Evaluator {
         return 0;
       }
 
+      case 'While': {
+        this._log(depth, `while:`);
+        const LIMIT = 10000;
+        let iters = 0;
+        while (true) {
+          const cond = this.eval(node.cond, depth + 1);
+          this._log(depth + 1, `→ condition = ${this._fmt(cond)} (${cond !== 0 ? 'true' : 'false'})`);
+          if (cond === 0) { this._log(depth + 1, `→ exiting loop`); break; }
+          if (++iters > LIMIT)
+            throw new InterpError('Error while loop exceeded 10000 iterations.', node.col);
+          for (const s of node.body) this.eval(s, depth + 2);
+        }
+        return 0;
+      }
+
+      case 'For': {
+        this._log(depth, `for ${node.varName}:`);
+        const start = this.eval(node.start, depth + 1);
+        const end   = this.eval(node.end,   depth + 1);
+        this._log(depth + 1, `→ range: ${this._fmt(start)} to ${this._fmt(end)}`);
+        const LIMIT = 10000;
+        let count = 0;
+        for (let i = start; i <= end; i++) {
+          if (++count > LIMIT)
+            throw new InterpError('Error for loop exceeded 10000 iterations.', node.col);
+          this.env[node.varName] = i;
+          this._log(depth + 1, `→ ${node.varName} = ${this._fmt(i)}`);
+          for (const s of node.body) this.eval(s, depth + 2);
+        }
+        return 0;
+      }
+
       // ── Program: run every statement, collect all errors ──
 
       case 'Program': {

@@ -7,10 +7,12 @@ class IdentNode   { constructor(n,col=0)      { this.type='Ident';   this.name=n
 class UnaryNode   { constructor(op,e,col=0)   { this.type='Unary';   this.op=op;    this.operand=e; this.col=col; } }
 class BinOpNode   { constructor(l,op,r,col=0) { this.type='BinOp';   this.left=l;   this.op=op; this.right=r; this.col=col; } }
 class BuiltinNode { constructor(fn,a,col=0)   { this.type='Builtin'; this.fn=fn;    this.arg=a;    this.col=col; } }
-class AssignNode  { constructor(nm,e,col=0)   { this.type='Assign';  this.name=nm;  this.expr=e;   this.col=col; } }
-class PrintNode   { constructor(e,col=0)      { this.type='Print';   this.expr=e;   this.col=col; } }
-class IfNode      { constructor(c,b,col=0)    { this.type='If';      this.cond=c;   this.body=b;   this.col=col; } }
-class ProgramNode { constructor(stmts)        { this.type='Program'; this.stmts=stmts; this.parseErrors=[]; } }
+class AssignNode  { constructor(nm,e,col=0)        { this.type='Assign'; this.name=nm;    this.expr=e;               this.col=col; } }
+class PrintNode   { constructor(e,col=0)            { this.type='Print';  this.expr=e;                                this.col=col; } }
+class IfNode      { constructor(c,b,col=0)          { this.type='If';     this.cond=c;    this.body=b;               this.col=col; } }
+class WhileNode   { constructor(c,b,col=0)          { this.type='While';  this.cond=c;    this.body=b;               this.col=col; } }
+class ForNode     { constructor(v,s,e,b,col=0)      { this.type='For';    this.varName=v; this.start=s; this.end=e;  this.body=b;  this.col=col; } }
+class ProgramNode { constructor(stmts)              { this.type='Program'; this.stmts=stmts; this.parseErrors=[]; } }
 
 // ─────────────────────────────────────────────────────────
 //  Parser  –  Syntactic Analysis
@@ -19,7 +21,9 @@ class ProgramNode { constructor(stmts)        { this.type='Program'; this.stmts=
 //    program    → statement* EOF
 //    statement  → IDENT '=' expr ';'
 //               | 'print' '(' expr ')' ';'
-//               | 'if' '(' expr ')' '{' statement* '}'
+//               | 'if'    '(' expr ')' '{' statement* '}'
+//               | 'while' '(' expr ')' '{' statement* '}'
+//               | 'for'   '(' IDENT '=' expr 'to' expr ')' '{' statement* '}'
 //    expr       → addExpr ( ('gt'|'lt'|'eq') addExpr )?
 //    addExpr    → term   ( ('add'|'sub') term )*
 //    term       → power  ( ('mult'|'div'|'mod') power )*
@@ -113,6 +117,50 @@ class Parser {
   statement() {
     const t = this.cur;
 
+    // while (expr) { stmts }
+    if (t.type === TT.WHILE) {
+      this.consume();
+      this.consume(TT.LPAREN);
+      const cond = this.expr();
+      this.consume(TT.RPAREN);
+      this.consume(TT.LBRACE);
+      const body = [];
+      while (this.cur.type !== TT.RBRACE && this.cur.type !== TT.EOF) {
+        try { body.push(this.statement()); }
+        catch (e) {
+          this._errors.push(e);
+          while (![TT.SEMI, TT.RBRACE, TT.EOF].includes(this.cur.type)) this.consume();
+          if (this.cur.type === TT.SEMI) this.consume();
+        }
+      }
+      this.consume(TT.RBRACE);
+      return new WhileNode(cond, body, t.col);
+    }
+
+    // for (ident = start to end) { stmts }
+    if (t.type === TT.FOR) {
+      this.consume();
+      this.consume(TT.LPAREN);
+      const varTok = this.consume(TT.IDENT);
+      this.consume(TT.EQUALS);
+      const start = this.expr();
+      this.consume(TT.TO);
+      const end = this.expr();
+      this.consume(TT.RPAREN);
+      this.consume(TT.LBRACE);
+      const body = [];
+      while (this.cur.type !== TT.RBRACE && this.cur.type !== TT.EOF) {
+        try { body.push(this.statement()); }
+        catch (e) {
+          this._errors.push(e);
+          while (![TT.SEMI, TT.RBRACE, TT.EOF].includes(this.cur.type)) this.consume();
+          if (this.cur.type === TT.SEMI) this.consume();
+        }
+      }
+      this.consume(TT.RBRACE);
+      return new ForNode(varTok.value, start, end, body, t.col);
+    }
+
     // if (expr) { stmts }
     if (t.type === TT.IF) {
       this.consume();
@@ -148,7 +196,8 @@ class Parser {
 
     // Reject operator keywords in variable-name position
     const SYS = [TT.ADD, TT.SUB, TT.MULT, TT.DIV, TT.MOD, TT.POW,
-                 TT.SQRT, TT.ABS, TT.FLOOR, TT.CEIL, TT.GT, TT.LT, TT.EQOP];
+                 TT.SQRT, TT.ABS, TT.FLOOR, TT.CEIL, TT.GT, TT.LT, TT.EQOP,
+                 TT.WHILE, TT.FOR, TT.TO];
     if (SYS.includes(t.type))
       throw new InterpError(`Error ${t.value} is system symbol`, t.col);
 
@@ -184,6 +233,8 @@ function nodeToSrc(node) {
     case 'Assign': return `${node.name} = ${exprToSrc(node.expr)};`;
     case 'Print':  return `print(${exprToSrc(node.expr)});`;
     case 'If':     return `if(${exprToSrc(node.cond)}){${node.body.map(nodeToSrc).join(' ')}}`;
+    case 'While':  return `while(${exprToSrc(node.cond)}){${node.body.map(nodeToSrc).join(' ')}}`;
+    case 'For':    return `for(${node.varName}=${exprToSrc(node.start)} to ${exprToSrc(node.end)}){${node.body.map(nodeToSrc).join(' ')}}`;
     default:       return exprToSrc(node);
   }
 }
@@ -219,6 +270,10 @@ function prettyAST(node, depth = 0) {
       return `Builtin(${node.fn})\n${p}  └ ${prettyAST(node.arg, depth+1)}`;
     case 'If':
       return `If\n${p}  ├ cond: ${prettyAST(node.cond,depth+1)}\n${p}  └ body[\n${node.body.map(s=>p+'    '+prettyAST(s,depth+2)).join('\n')}\n${p}  ]`;
+    case 'While':
+      return `While\n${p}  ├ cond: ${prettyAST(node.cond,depth+1)}\n${p}  └ body[\n${node.body.map(s=>p+'    '+prettyAST(s,depth+2)).join('\n')}\n${p}  ]`;
+    case 'For':
+      return `For(${node.varName})\n${p}  ├ start: ${prettyAST(node.start,depth+1)}\n${p}  ├ end:   ${prettyAST(node.end,depth+1)}\n${p}  └ body[\n${node.body.map(s=>p+'    '+prettyAST(s,depth+2)).join('\n')}\n${p}  ]`;
     default: return JSON.stringify(node);
   }
 }

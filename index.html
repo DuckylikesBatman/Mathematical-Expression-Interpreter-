@@ -44,7 +44,9 @@
         <pre class="grammar">program    &#8594; statement* EOF
 statement  &#8594; IDENT '=' expr ';'
            | 'print' '(' expr ')' ';'
-           | 'if' '(' expr ')' '{' statement* '}'
+           | 'if'    '(' expr ')' '{' statement* '}'
+           | 'while' '(' expr ')' '{' statement* '}'
+           | 'for'   '(' IDENT '=' expr 'to' expr ')' '{' statement* '}'
 expr       &#8594; addExpr ( ('gt'|'lt'|'eq') addExpr )?
 addExpr    &#8594; term   ( ('add'|'sub')         term   )*
 term       &#8594; power  ( ('mult'|'div'|'mod')  power  )*
@@ -55,7 +57,7 @@ factor     &#8594; NUMBER | IDENT | '(' expr ')' | '-' factor
 Arithmetic : add  sub  mult  div  mod  pow
 Comparisons: gt   lt   eq          (return 1=true, 0=false)
 Built-ins  : sqrt  abs  floor  ceil
-Control    : if
+Control    : if  while  for...to
 Comments   : # text to end of line</pre>
       </details>
 
@@ -64,7 +66,8 @@ Comments   : # text to end of line</pre>
         Arithmetic: <code>add</code> <code>sub</code> <code>mult</code>
         <code>div</code> <code>mod</code> <code>pow</code> &nbsp;|&nbsp;
         Compare: <code>gt</code> <code>lt</code> <code>eq</code> &nbsp;|&nbsp;
-        Functions: <code>sqrt</code> <code>abs</code> <code>floor</code> <code>ceil</code>
+        Functions: <code>sqrt</code> <code>abs</code> <code>floor</code> <code>ceil</code> &nbsp;|&nbsp;
+        Loops: <code>while(cond){}</code> <code>for(i=1 to 5){}</code>
       </p>
 
       <!-- Buttons -->
@@ -98,7 +101,7 @@ Comments   : # text to end of line</pre>
         <div id="tokenOut">
           <em class="muted">Click "Tokens", "Run", or use Step mode</em>
         </div>
-      </section>
+      </section> 
 
       <!-- Stage 2: Syntactic Analysis -->
       <section class="card stage-card s2-card">
@@ -154,6 +157,92 @@ Comments   : # text to end of line</pre>
     </div><!-- /output-col -->
   </div><!-- /main -->
 
+  <!-- ═══ SQL INTERPRETER (full-width) ═════════════════════ -->
+  <section class="card sql-interp-section">
+    <div class="card-head">
+      <span class="card-title">SQL Interpreter
+        <span class="card-sub">— tables: runs, programs</span>
+      </span>
+      <div class="pipeline-bar">
+        <span class="stage-pill s1">1 &nbsp;Lexical</span>
+        <span class="arr">&#8594;</span>
+        <span class="stage-pill s2">2 &nbsp;Syntactic</span>
+        <span class="arr">&#8594;</span>
+        <span class="stage-pill s3">3 &nbsp;Evaluation</span>
+      </div>
+    </div>
+
+    <div class="sql-interp-input-row">
+      <div class="example-row">
+        <label class="ex-label">Examples:</label>
+        <select id="sqlExampleSelect">
+          <option value="">— load example —</option>
+        </select>
+      </div>
+      <div class="sql-interp-run-row">
+        <textarea id="sqlInterpInput" spellcheck="false"
+          placeholder="SELECT * FROM runs ORDER BY ran_at DESC LIMIT 5"></textarea>
+        <button onclick="runSqlInterp()">&#9654; Run</button>
+      </div>
+    </div>
+
+    <div class="sql-pipeline-row">
+
+      <!-- Stage 1: Tokens -->
+      <section class="card stage-card s1-card">
+        <div class="card-head">
+          <div class="stage-head">
+            <span class="stage-badge s1">1</span>
+            <span class="card-title">Lexical Analysis
+              <span class="card-sub">— token stream</span>
+            </span>
+          </div>
+        </div>
+        <div id="sqlInterpTokens"><em class="muted">Run a query to see tokens</em></div>
+      </section>
+
+      <!-- Stage 2: AST -->
+      <section class="card stage-card s2-card">
+        <div class="card-head">
+          <div class="stage-head">
+            <span class="stage-badge s2">2</span>
+            <span class="card-title">Syntactic Analysis
+              <span class="card-sub">— abstract syntax tree</span>
+            </span>
+          </div>
+        </div>
+        <pre id="sqlInterpAST"><em class="muted">Run a query to see AST</em></pre>
+      </section>
+
+    </div><!-- /sql-pipeline-row -->
+
+    <!-- Stage 3: Results -->
+    <section class="card stage-card s3-card">
+      <div class="card-head">
+        <div class="stage-head">
+          <span class="stage-badge s3">3</span>
+          <span class="card-title">Evaluation
+            <span class="card-sub">— query results</span>
+          </span>
+        </div>
+      </div>
+      <div id="sqlInterpResults"><em class="muted">Run a query to see results</em></div>
+    </section>
+
+    <details class="grammar-box" style="margin-top:10px;">
+      <summary>Supported SQL syntax</summary>
+      <pre class="grammar">SELECT *             FROM table
+SELECT col1, col2    FROM table  WHERE col op val (AND col op val)*
+SELECT ...           FROM table  ORDER BY col (ASC|DESC)
+SELECT ...           FROM table  LIMIT n
+
+Operators : =  !=  >  <  >=  <=
+Tables    : runs      (id, code, result, var_count, had_errors, ran_at)
+            programs  (id, name, code, saved_at)</pre>
+    </details>
+
+  </section>
+
   <!-- ═══ DATABASE PANEL (full-width) ══════════════════════ -->
   <section class="card db-panel" id="db-section">
     <div class="card-head">
@@ -188,20 +277,6 @@ Comments   : # text to end of line</pre>
         <div id="runHistory"><em class="muted">No runs logged yet.</em></div>
       </div>
 
-      <!-- SQL Console -->
-      <div class="db-col db-col-wide">
-        <div class="db-col-head">
-          <span class="db-col-title">SQL Console</span>
-          <span class="db-hint"><kbd>Ctrl+Enter</kbd> to run</span>
-        </div>
-        <div class="db-query-row">
-          <textarea id="sqlInput" class="db-sql-input" spellcheck="false"
-            placeholder="SELECT * FROM runs ORDER BY ran_at DESC;"></textarea>
-          <button class="db-btn db-btn-exec" onclick="dbExecuteQuery()">&#9654; Execute</button>
-        </div>
-        <div id="sqlResults" class="db-results"><em class="muted">Results will appear here.</em></div>
-      </div>
-
     </div><!-- /db-grid -->
 
     <!-- Schema reference -->
@@ -216,6 +291,7 @@ Comments   : # text to end of line</pre>
 TABLE runs
   id         INTEGER  PRIMARY KEY AUTOINCREMENT
   code       TEXT
+  result     TEXT     final variable values (e.g. "x=10  y=5")
   var_count  INTEGER  number of variables assigned
   had_errors INTEGER  1 = had errors, 0 = clean run
   ran_at     TEXT     datetime('now')</pre>
@@ -231,5 +307,8 @@ TABLE runs
 <script src="js/evaluator.js"></script>
 <script src="js/database.js"></script>
 <script src="js/main.js"></script>
+<script src="js/sql_lexer.js"></script>
+<script src="js/sql_parser.js"></script>
+<script src="js/sql_evaluator.js"></script>
 </body>
 </html>

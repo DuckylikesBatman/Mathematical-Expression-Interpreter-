@@ -17,6 +17,9 @@ const TT = Object.freeze({
   LT:      'LT',
   EQOP:    'EQOP',
   IF:      'IF',
+  WHILE:   'WHILE',
+  FOR:     'FOR',
+  TO:      'TO',
   PRINT:   'PRINT',
   EQUALS:  'EQUALS',
   SEMI:    'SEMI',
@@ -86,7 +89,8 @@ class Lexer {
       floor: TT.FLOOR, ceil:  TT.CEIL,
       gt:    TT.GT,    lt:    TT.LT,
       eq:    TT.EQOP,  if:    TT.IF,
-      print: TT.PRINT,
+      while: TT.WHILE, for:   TT.FOR,
+      to:    TT.TO,    print: TT.PRINT,
     };
     if (lower in keywords) return new Token(keywords[lower], lower, col);
     return new Token(TT.IDENT, s, col);

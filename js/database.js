@@ -17,6 +17,7 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS runs (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     code       TEXT    NOT NULL,
+    result     TEXT    NOT NULL DEFAULT '',
     var_count  INTEGER NOT NULL DEFAULT 0,
     had_errors INTEGER NOT NULL DEFAULT 0,
     ran_at     TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -38,12 +39,15 @@ function dbInit() {
   });
 }
 
+// ── Expose raw db instance (used by sql_evaluator.js) ────
+function dbGetRaw() { return _db; }
+
 // ── Log a run ─────────────────────────────────────────────
-function dbLogRun(code, varCount, hadErrors) {
+function dbLogRun(code, result, varCount, hadErrors) {
   if (!_db) return;
   _db.run(
-    'INSERT INTO runs (code, var_count, had_errors) VALUES (?, ?, ?)',
-    [code, varCount, hadErrors ? 1 : 0]
+    'INSERT INTO runs (code, result, var_count, had_errors) VALUES (?, ?, ?, ?)',
+    [code, result || '', varCount, hadErrors ? 1 : 0]
   );
   _refreshRunHistory();
 }
@@ -78,37 +82,6 @@ function dbDeleteProgram(id) {
   _refreshSavedPrograms();
 }
 
-// ── Execute arbitrary SQL (SQL console) ──────────────────
-function dbExecuteQuery() {
-  const sql = document.getElementById('sqlInput').value.trim();
-  const out = document.getElementById('sqlResults');
-  if (!sql) return;
-  if (!_db) { out.textContent = 'Database not ready.'; return; }
-  try {
-    const results = _db.exec(sql);
-    if (!results.length) {
-      out.innerHTML = '<em class="muted">Query ran successfully (no rows returned).</em>';
-      // Refresh panels in case the query mutated data
-      dbRefreshUI();
-      return;
-    }
-    out.innerHTML = results.map(r => _renderTable(r.columns, r.values)).join('<br>');
-    dbRefreshUI();
-  } catch (e) {
-    out.innerHTML = `<span class="db-err">${escHtml(e.message)}</span>`;
-  }
-}
-
-// ── Internal render helpers ───────────────────────────────
-function _renderTable(cols, rows) {
-  if (!rows.length)
-    return `<em class="muted">(0 rows)</em>`;
-  const head = cols.map(c => `<th>${escHtml(String(c))}</th>`).join('');
-  const body = rows.map(r =>
-    `<tr>${r.map(v => `<td>${escHtml(v === null ? 'NULL' : String(v))}</td>`).join('')}</tr>`
-  ).join('');
-  return `<table class="db-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
-}
 
 function _truncate(s, n) {
   s = String(s).replace(/\s+/g, ' ').trim();
@@ -143,16 +116,17 @@ function _refreshRunHistory() {
   const el = document.getElementById('runHistory');
   if (!el || !_db) return;
   const res = _db.exec(
-    'SELECT id, code, var_count, had_errors, ran_at FROM runs ORDER BY ran_at DESC LIMIT 20'
+    'SELECT id, code, result, var_count, had_errors, ran_at FROM runs ORDER BY ran_at DESC LIMIT 20'
   );
   if (!res.length || !res[0].values.length) {
     el.innerHTML = '<em class="muted">No runs logged yet.</em>';
     return;
   }
-  el.innerHTML = res[0].values.map(([id, code, vars, errs, ts]) =>
+  el.innerHTML = res[0].values.map(([id, code, result, vars, errs, ts]) =>
     `<div class="db-row">
       <span class="db-run-id">#${id}</span>
-      <span class="db-code-preview">${escHtml(_truncate(code, 38))}</span>
+      <span class="db-code-preview">${escHtml(_truncate(code, 30))}</span>
+      ${result ? `<span class="db-result-preview">${escHtml(_truncate(result, 28))}</span>` : ''}
       <span class="db-badge ${errs ? 'db-badge-err' : 'db-badge-ok'}">
         ${errs ? 'errors' : 'ok'}
       </span>

@@ -276,7 +276,7 @@ button:disabled:hover { background: #1a3328; }
 
 .db-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.4fr;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-top: 4px;
 }
@@ -374,36 +374,6 @@ button:disabled:hover { background: #1a3328; }
 .db-btn-del:hover  { background: #2a0d0d; }
 .db-btn-save       { background: #0d2a1a; color: #4ef5a2; border-color: #1a5a2a; }
 .db-btn-save:hover { background: #1a3a24; }
-.db-btn-exec       { align-self: flex-start; padding: 6px 12px; font-size: 11px; }
-
-/* SQL console */
-.db-query-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.db-sql-input {
-  flex: 1;
-  height: 60px;
-  background: #0b1220;
-  color: #00ff99;
-  border: 1px solid #1a3a2a;
-  padding: 7px 9px;
-  border-radius: 6px;
-  font-family: "Courier New", monospace;
-  font-size: 12px;
-  resize: vertical;
-}
-.db-sql-input:focus { outline: 1px solid #00c77a; }
-
-.db-results {
-  margin-top: 8px;
-  overflow-x: auto;
-  font-size: 11px;
-  max-height: 200px;
-  overflow-y: auto;
-}
 
 .db-err { color: #ff7070; }
 
@@ -502,6 +472,72 @@ button:disabled:hover { background: #1a3328; }
 
 /* ── Shared ────────────────────────────────────────────── */
 .muted { color: #2a4a38; font-size: 12px; font-style: normal; }
+
+/* ── SQL Interpreter section ───────────────────────────── */
+.sql-interp-section { margin-top: 16px; }
+
+#sqlExampleSelect {
+  background: #0b1220; color: #6ef2b2;
+  border: 1px solid #1a3a2a;
+  padding: 4px 7px; border-radius: 5px;
+  font-family: "Courier New", monospace;
+  font-size: 10px; cursor: pointer; max-width: 240px;
+}
+#sqlExampleSelect:focus { outline: 1px solid #00c77a; }
+
+.sql-interp-input-row {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;
+}
+
+.sql-interp-run-row {
+  display: flex; gap: 8px; align-items: center;
+}
+.sql-interp-run-row textarea { flex: 1; height: 56px; margin-bottom: 0; }
+
+.sql-pipeline-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;
+}
+@media (max-width: 700px) { .sql-pipeline-row { grid-template-columns: 1fr; } }
+
+/* Inner stage panels sit inside the outer card — use darker bg to distinguish */
+.sql-interp-section .stage-card {
+  background: #0b1220;
+}
+
+#sqlInterpTokens {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  min-height: 20px; max-height: 110px; overflow-y: auto;
+}
+
+#sqlInterpAST {
+  font-size: 12px; color: #a8d8bc; white-space: pre;
+  overflow-x: auto; max-height: 110px; overflow-y: auto;
+  min-height: 20px; line-height: 1.65;
+}
+
+#sqlInterpResults {
+  overflow-x: auto; max-height: 180px; overflow-y: auto; font-size: 11px;
+}
+
+/* SQL token badge colors */
+.tok-sql-keyword { background: #0a2030; color: #7af5c0; }
+.tok-sql-ident   { background: #201a10; color: #f5d85e; }
+.tok-sql-number  { background: #1a2040; color: #7ab8f5; }
+.tok-sql-string  { background: #1a2a10; color: #a8f57a; }
+.tok-sql-op      { background: #2a1a30; color: #e090f5; }
+.tok-sql-star    { background: #0d2f1e; color: #4ef5a2; }
+.tok-sql-punct   { background: #251a10; color: #f5b85e; }
+
+/* Run history result preview */
+.db-result-preview {
+  color: #7af5f5; font-size: 10px; font-style: italic;
+  flex: 1; min-width: 0; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
+}
+
+/* Visual AST nodes for while/for loops */
+.anwhile rect { fill: #0a2a20; stroke: #1a6a50; }
+.anfor   rect { fill: #0a2030; stroke: #1a5060; }
 
 /* ── Scrollbars ────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 5px; height: 5px; }

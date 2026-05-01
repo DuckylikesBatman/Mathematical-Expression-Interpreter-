@@ -23,6 +23,12 @@ const EXAMPLES = [
     code:  'x=10; y=5; big= x gt y; small= x lt y; same= x eq y;' },
   { label: 'if statement',
     code:  'score=85;\nif (score gt 59) {\n  print(score);\n  grade= score div 10;\n}' },
+  { label: 'while loop',
+    code:  'i=1; total=0;\nwhile (i lt 6) {\n  total= total add i;\n  i= i add 1;\n}\nprint(total);' },
+  { label: 'for loop',
+    code:  'total=0;\nfor (i = 1 to 5) {\n  total= total add i;\n}\nprint(total);' },
+  { label: 'for loop: factorial',
+    code:  'n=6; result=1;\nfor (i = 2 to n) {\n  result= result mult i;\n}\nprint(result);' },
   { label: 'Comments (#)',
     code:  '# compute area of a circle\npi=3.14159; r=6;\narea= pi mult (r mult r); # pi*r^2\nprint(area);' },
   { label: 'Error: variable not declared',
@@ -136,6 +142,8 @@ function _astChildren(n) {
     case 'Unary':   return [n.operand];
     case 'Builtin': return [n.arg];
     case 'If':      return [n.cond, ...n.body];
+    case 'While':   return [n.cond, ...n.body];
+    case 'For':     return [n.start, n.end, ...n.body];
     default:        return [];
   }
 }
@@ -150,6 +158,8 @@ function _astLabel(n) {
     case 'Unary':   s = 'neg (−)'; break;
     case 'Builtin': s = n.fn; break;
     case 'If':      s = 'if'; break;
+    case 'While':   s = 'while'; break;
+    case 'For':     s = `for ${n.varName}`; break;
     case 'Ident':   s = n.name; break;
     case 'Number':  s = String(n.value); break;
     default:        s = n.type; break;
@@ -161,7 +171,7 @@ function _astClass(n) {
   const map = {
     Program:'anprog', Assign:'anass',  Print:'anprint',
     BinOp:'anbin',    Unary:'anun',    Ident:'anid',
-    Number:'annum',   Builtin:'anblt', If:'anif',
+    Number:'annum',   Builtin:'anblt', If:'anif', While:'anwhile', For:'anfor',
   };
   return map[n.type] || 'anoth';
 }
@@ -267,7 +277,8 @@ function run() {
   showPrints(ev.prints);
   showResult(ev.env);
   updateVarsPanel(ev.env);
-  dbLogRun(src, Object.keys(ev.env).length, allErrors.length > 0);
+  const resultStr = Object.keys(ev.env).map(k => `${k}=${formatNum(ev.env[k])}`).join('  ');
+  dbLogRun(src, resultStr, Object.keys(ev.env).length, allErrors.length > 0);
 }
 
 function showTokens() {
@@ -398,10 +409,6 @@ document.getElementById('progName')?.addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); dbSaveCurrent(); }
 });
 
-// SQL console Enter = execute
-document.getElementById('sqlInput')?.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); dbExecuteQuery(); }
-});
 
 // ── Init ──────────────────────────────────────────────────
 document.getElementById('resetStepBtn').disabled = true;
