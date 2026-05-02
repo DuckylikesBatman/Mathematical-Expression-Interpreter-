@@ -39,7 +39,7 @@ class Evaluator {
 
       case 'Ident': {
         if (!(node.name in this.env))
-          throw new InterpError(`Error ${node.name} not declared.`, node.col);
+          throw new InterpError(`Error: '${node.name}' is not declared`, node.col);
         const v = this.env[node.name];
         this._log(depth, `${node.name} → ${this._fmt(v)}`);
         return v;
@@ -82,11 +82,11 @@ class Evaluator {
         if (node.op === 'lt')   result = l < r   ? 1 : 0;
         if (node.op === 'eq')   result = l === r ? 1 : 0;
         if (node.op === 'div') {
-          if (r === 0) throw new InterpError('Error cannot divide by 0.', node.col);
+          if (r === 0) throw new InterpError('Error: division by zero', node.col);
           result = l / r;
         }
         if (node.op === 'mod') {
-          if (r === 0) throw new InterpError('Error cannot mod by 0.', node.col);
+          if (r === 0) throw new InterpError('Error: modulo by zero', node.col);
           result = l % r;
         }
         this._log(depth + 1,
@@ -136,7 +136,7 @@ class Evaluator {
           this._log(depth + 1, `→ condition = ${this._fmt(cond)} (${cond !== 0 ? 'true' : 'false'})`);
           if (cond === 0) { this._log(depth + 1, `→ exiting loop`); break; }
           if (++iters > LIMIT)
-            throw new InterpError('Error while loop exceeded 10000 iterations.', node.col);
+            throw new InterpError('Error: while loop exceeded 10 000 iterations', node.col);
           for (const s of node.body) this.eval(s, depth + 2);
         }
         return 0;
@@ -151,7 +151,7 @@ class Evaluator {
         let count = 0;
         for (let i = start; i <= end; i++) {
           if (++count > LIMIT)
-            throw new InterpError('Error for loop exceeded 10000 iterations.', node.col);
+            throw new InterpError('Error: for loop exceeded 10 000 iterations', node.col);
           this.env[node.varName] = i;
           this._log(depth + 1, `→ ${node.varName} = ${this._fmt(i)}`);
           for (const s of node.body) this.eval(s, depth + 2);

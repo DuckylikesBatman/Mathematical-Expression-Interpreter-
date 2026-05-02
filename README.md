@@ -61,6 +61,14 @@ w = ceil(3.2);
 if (x gt 0) {
     print(x);
 }
+
+while (i lt 10) {
+    i = i add 1;
+}
+
+for (i = 1 to 5) {
+    total = total add i;
+}
 ```
 
 ### Output
@@ -82,7 +90,9 @@ x = 42;  # inline comment
 program    → statement* EOF
 statement  → IDENT '=' expr ';'
            | 'print' '(' expr ')' ';'
-           | 'if' '(' expr ')' '{' statement* '}'
+           | 'if'    '(' expr ')' '{' statement* '}'
+           | 'while' '(' expr ')' '{' statement* '}'
+           | 'for'   '(' IDENT '=' expr 'to' expr ')' '{' statement* '}'
 expr       → addExpr ( ('gt'|'lt'|'eq') addExpr )?
 addExpr    → term   ( ('add'|'sub')         term   )*
 term       → power  ( ('mult'|'div'|'mod')  power  )*

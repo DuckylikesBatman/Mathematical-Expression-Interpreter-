@@ -185,7 +185,7 @@ class Parser {
     // print(expr);
     if (t.type === TT.PRINT) {
       if (this.tokens[this.pos + 1]?.type === TT.EQUALS)
-        throw new InterpError(`Error print is system symbol`, t.col);
+        throw new InterpError(`Error: 'print' is a system keyword`, t.col);
       this.consume();
       this.consume(TT.LPAREN);
       const e = this.expr();
@@ -199,7 +199,7 @@ class Parser {
                  TT.SQRT, TT.ABS, TT.FLOOR, TT.CEIL, TT.GT, TT.LT, TT.EQOP,
                  TT.WHILE, TT.FOR, TT.TO];
     if (SYS.includes(t.type))
-      throw new InterpError(`Error ${t.value} is system symbol`, t.col);
+      throw new InterpError(`Error: '${t.value}' is a system keyword`, t.col);
 
     // IDENT = expr ;
     const nm = this.consume(TT.IDENT);

@@ -125,14 +125,6 @@ header h1 {
 .tog:hover  { color: #6ef2b2; border-color: #2a5a3a; }
 .tog.active { background: #1a3328; color: #6ef2b2; border-color: #2a5a3a; }
 
-/* ── Optimizer summary ─────────────────────────────────── */
-.opt-summary {
-  font-size: 11px;
-  color: #c07af5;
-  margin-bottom: 6px;
-  min-height: 14px;
-}
-
 /* ── Examples dropdown ─────────────────────────────────── */
 .example-row { display:flex; align-items:center; gap:7px; }
 .ex-label    { font-size:10px; color:#3a6450; white-space:nowrap; }
@@ -431,11 +423,14 @@ button:disabled:hover { background: #1a3328; }
 .tok-floor, .tok-ceil           { background:#1a103a; color:#c07af5; }
 /* comparison operators */
 .tok-gt, .tok-lt, .tok-eqop     { background:#2a1a30; color:#e090f5; }
-/* if keyword */
+/* if / while / for / to keywords */
 .tok-if                         { background:#0a2030; color:#7af5c0; }
+.tok-while                      { background:#0a2030; color:#7af5c0; }
+.tok-for                        { background:#0a2030; color:#7af5c0; }
+.tok-to                         { background:#0a2030; color:#7af5c0; }
 
 /* ── Text AST ──────────────────────────────────────────── */
-#astOut, #optBefore, #optAfter {
+#astOut {
   font-size: 12px; color: #a8d8bc;
   white-space: pre; overflow-x: auto;
   max-height: 200px; overflow-y: auto;

@@ -53,7 +53,7 @@ class SqlLexer {
     const upper = s.toUpperCase();
     const kw = { SELECT:1,FROM:1,WHERE:1,ORDER:1,BY:1,ASC:1,DESC:1,LIMIT:1,AND:1,OR:1 };
     if (upper in kw) return new SqlToken(SQL_TT[upper], upper, col);
-    return new SqlToken(SQL_TT.IDENT, s, col);
+    return new SqlToken(SQL_TT.IDENT, s.toLowerCase(), col);
   }
 
   tokenize() {
