@@ -1,7 +1,17 @@
 "use strict";
 // Depends on: lexer.js, parser.js, evaluator.js
 
-// ── Examples ──────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  MAIN (UI Orchestration)
+//
+//  Job: wire up the UI — buttons, panels, and the full pipeline.
+//  This file calls the Lexer, Parser, and Evaluator in sequence,
+//  then renders the results in the correct HTML elements.
+// ═══════════════════════════════════════════════════════════════
+
+// ── Built-in example programs ────────────────────────────────
+// These populate the "Examples" dropdown. Each has a label (shown
+// in the dropdown) and the code that gets loaded into the editor.
 const EXAMPLES = [
   { label: 'Basic: assignment + division',
     code:  'a=10; b=5; c= a div b;' },
@@ -41,11 +51,15 @@ const EXAMPLES = [
     code:  'a=5; b= ghost add 1; d= a div 0; e= a add 2;' },
 ];
 
-// ── Utilities ─────────────────────────────────────────────
+// ── Utility helpers ───────────────────────────────────────────
+
+// formatNum — same formatting as Evaluator._fmt; used in the UI for display
 function formatNum(v) {
   return Number.isInteger(v) ? String(v) : parseFloat(v.toFixed(10)).toString();
 }
 
+// escHtml — escapes HTML special characters so user-provided text
+// can be injected into innerHTML without risk of XSS
 function escHtml(s) {
   return String(s)
     .replace(/&/g, '&amp;')
@@ -53,7 +67,10 @@ function escHtml(s) {
     .replace(/>/g, '&gt;');
 }
 
-// ── Token badges ──────────────────────────────────────────
+// ── Token badges ──────────────────────────────────────────────
+// renderTokens — renders each token as a colored badge in the token panel.
+// Each badge shows the token type, its value (if any), and the column position.
+// CSS classes like tok-number, tok-ident etc. provide the different colors.
 function renderTokens(tokens) {
   const el = document.getElementById('tokenOut');
   if (!tokens.length) { el.innerHTML = '<em class="muted">No tokens</em>'; return; }
@@ -65,29 +82,35 @@ function renderTokens(tokens) {
   }).join('');
 }
 
-// ── Error display with source pointer ─────────────────────
+// ── Error display with source pointer ─────────────────────────
+// showErrors — displays error messages with a ^^^ pointer under
+// the exact column in the source where the error occurred.
+// Works across multi-line source by counting line lengths.
 function showErrors(errors, src) {
   if (!errors.length) return;
   const lines = src.split('\n');
   document.getElementById('errOut').innerHTML = errors.map(e => {
     let html = `<div class="err-msg">${escHtml(e.message)}</div>`;
     if (e.col !== undefined) {
+      // Find which line contains the error column
       let remaining = e.col, lineIdx = 0, lineStart = 0;
       for (let i = 0; i < lines.length; i++) {
         if (remaining <= lines[i].length) { lineIdx = i; break; }
-        remaining  -= lines[i].length + 1;
+        remaining  -= lines[i].length + 1; // +1 for the newline character
         lineStart  += lines[i].length + 1;
         lineIdx = i + 1;
       }
       const col = Math.max(0, e.col - lineStart);
-      const ptr = ' '.repeat(col) + '^^^';
+      const ptr = ' '.repeat(col) + '^^^'; // pointer arrows under the bad token
       html += `<pre class="err-ptr">${escHtml(lines[lineIdx] || '')}\n${ptr}</pre>`;
     }
     return `<div class="err-block">${html}</div>`;
   }).join('');
 }
 
-// ── Panel helpers ─────────────────────────────────────────
+// ── Output panel helpers ──────────────────────────────────────
+
+// updateVarsPanel — renders the symbol table (all assigned variables and their values)
 function updateVarsPanel(env) {
   const el   = document.getElementById('varsOut');
   const keys = Object.keys(env);
@@ -101,6 +124,7 @@ function updateVarsPanel(env) {
   ).join('');
 }
 
+// showResult — shows a compact summary line of all variables, e.g. "a=10  b=5  c=2"
 function showResult(env) {
   const keys = Object.keys(env);
   if (!keys.length) return;
@@ -108,6 +132,7 @@ function showResult(env) {
     keys.map(k => `${k}=${formatNum(env[k])}`).join('    ');
 }
 
+// showPrints — renders the output of all print() statements
 function showPrints(prints) {
   const el = document.getElementById('printOut');
   if (!prints || !prints.length) { el.innerHTML = ''; return; }
@@ -116,7 +141,7 @@ function showPrints(prints) {
     prints.map(v => `<div class="print-line">&gt;&nbsp;${escHtml(v)}</div>`).join('');
 }
 
-
+// clearOutput — resets every output panel back to its placeholder state
 function clearOutput() {
   document.getElementById('errOut').innerHTML      = '';
   document.getElementById('printOut').innerHTML    = '';
@@ -131,8 +156,16 @@ function clearOutput() {
 }
 
 // ═════════════════════════════════════════════════════════
-//  VISUAL AST  –  SVG tree diagram
+//  VISUAL AST — SVG tree diagram
+//
+//  Converts the AST into a graphical tree using SVG rectangles
+//  and lines.  Two-pass layout:
+//    Pass 1 (measure): compute the width each subtree needs (bottom-up)
+//    Pass 2 (place):   assign (x, y) coordinates to each node (top-down)
 // ═════════════════════════════════════════════════════════
+
+// _astChildren — returns the child nodes for a given AST node
+// (defines which nodes are connected by edges in the visual diagram)
 function _astChildren(n) {
   switch (n.type) {
     case 'Program': return n.stmts;
@@ -148,6 +181,7 @@ function _astChildren(n) {
   }
 }
 
+// _astLabel — returns the short text label shown inside each SVG rectangle
 function _astLabel(n) {
   let s;
   switch (n.type) {
@@ -164,9 +198,10 @@ function _astLabel(n) {
     case 'Number':  s = String(n.value); break;
     default:        s = n.type; break;
   }
-  return s.length > 11 ? s.slice(0, 10) + '…' : s;
+  return s.length > 11 ? s.slice(0, 10) + '…' : s; // truncate long labels
 }
 
+// _astClass — returns the CSS class for a node rectangle (controls its color)
 function _astClass(n) {
   const map = {
     Program:'anprog', Assign:'anass',  Print:'anprint',
@@ -176,9 +211,13 @@ function _astClass(n) {
   return map[n.type] || 'anoth';
 }
 
+// buildASTSVG — builds a full SVG element string for the visual tree
+// NW/NH = node width/height, HGAP = horizontal gap, VGAP = vertical gap, PAD = padding
 function buildASTSVG(root) {
   const NW = 84, NH = 34, HGAP = 22, VGAP = 56, PAD = 28;
 
+  // Pass 1: measure — recursively computes how wide each subtree needs to be.
+  // Leaf nodes need exactly NW pixels. Parent nodes need the sum of children widths + gaps.
   function measure(n) {
     const ch = _astChildren(n);
     if (!ch.length) { n._w = NW; return NW; }
@@ -187,17 +226,20 @@ function buildASTSVG(root) {
     return n._w;
   }
 
+  // Pass 2: place — assigns (x, y) pixel coordinates to every node.
+  // cx = center x of the node, y = top y of the node row
   function place(n, cx, y) {
     n._x = cx; n._y = y;
     const ch = _astChildren(n);
     if (!ch.length) return;
-    let x = cx - n._w / 2;
+    let x = cx - n._w / 2; // start from left edge of this node's allocated space
     ch.forEach(c => { place(c, x + c._w / 2, y + NH + VGAP); x += c._w + HGAP; });
   }
 
   measure(root);
   place(root, root._w / 2 + PAD, PAD + NH / 2);
 
+  // Collect all nodes and edges into flat arrays for rendering
   const allN = [], allE = [];
   (function collect(n) {
     allN.push(n);
@@ -207,10 +249,12 @@ function buildASTSVG(root) {
   const svgW = root._w + PAD * 2;
   const svgH = Math.max(...allN.map(n => n._y)) + NH / 2 + PAD;
 
+  // Render edges (lines from parent bottom to child top)
   const edges = allE.map(([p, c]) =>
     `<line x1="${p._x}" y1="${p._y + NH/2}" x2="${c._x}" y2="${c._y - NH/2}" class="ast-edge"/>`
   ).join('');
 
+  // Render nodes (rectangles with text labels)
   const nodes = allN.map(n => {
     const lbl = _astLabel(n);
     return `<g class="ast-node ${_astClass(n)}" transform="translate(${n._x},${n._y})">
@@ -227,10 +271,13 @@ function buildASTSVG(root) {
   </svg>`;
 }
 
-// AST view toggle (text ↔ visual)
+// ── AST view toggle (text ↔ visual) ──────────────────────────
+// _astMode tracks which view is active; _lastAST caches the last parsed tree
+// so switching modes doesn't need to re-run the parser
 let _astMode = 'text';
 let _lastAST  = null;
 
+// switchAST — called by the Text / Visual toggle buttons in the AST panel
 function switchAST(mode) {
   _astMode = mode;
   document.getElementById('astTextBtn').classList.toggle('active', mode === 'text');
@@ -241,6 +288,7 @@ function switchAST(mode) {
     document.getElementById('astTreeOut').innerHTML = buildASTSVG(_lastAST);
 }
 
+// _displayAST — renders the AST in both the text panel and the SVG panel
 function _displayAST(ast) {
   _lastAST = ast;
   document.getElementById('astOut').textContent = prettyAST(ast);
@@ -249,38 +297,45 @@ function _displayAST(ast) {
 }
 
 // ═════════════════════════════════════════════════════════
-//  RUN MODE  –  execute everything at once
+//  RUN MODE — execute the whole program at once
 // ═════════════════════════════════════════════════════════
+
+// run — the main "Run" button handler
+// Runs all 3 pipeline stages in sequence and updates all output panels
 function run() {
-  _exitStep();
+  _exitStep(); // exit step mode if active
   clearOutput();
   const src = document.getElementById('code').value.trim();
   if (!src) return;
 
-  // Stage 1: Lex
+  // Stage 1: Lex — convert source text to tokens
   let tokens;
   try { tokens = new Lexer(src).tokenize(); }
   catch (e) { showErrors([e], src); return; }
-  renderTokens(tokens.filter(t => t.type !== TT.EOF));
+  renderTokens(tokens.filter(t => t.type !== TT.EOF)); // skip the EOF token in display
 
-  // Stage 2: Parse
+  // Stage 2: Parse — convert tokens to AST
   const ast = new Parser(tokens).parse();
   _displayAST(ast);
 
-  // Stage 3: Evaluate
+  // Stage 3: Evaluate — walk the AST and compute values
   const ev = new Evaluator();
   ev.eval(ast);
 
+  // Display all results (parse errors + runtime errors combined)
   const allErrors = [...ast.parseErrors, ...ev.errors];
   document.getElementById('traceOut').textContent = ev.trace.join('\n');
   if (allErrors.length) showErrors(allErrors, src);
   showPrints(ev.prints);
   showResult(ev.env);
   updateVarsPanel(ev.env);
+
+  // Log the run to the SQLite database automatically
   const resultStr = Object.keys(ev.env).map(k => `${k}=${formatNum(ev.env[k])}`).join('  ');
   dbLogRun(src, resultStr, Object.keys(ev.env).length, allErrors.length > 0);
 }
 
+// showTokens — runs only Stage 1 and displays the token stream
 function showTokens() {
   _exitStep(); clearOutput();
   const src = document.getElementById('code').value.trim();
@@ -289,6 +344,7 @@ function showTokens() {
   catch (e) { showErrors([e], src); }
 }
 
+// showAST — runs Stages 1 and 2 and displays the AST (without evaluating)
 function showAST() {
   _exitStep(); clearOutput();
   const src = document.getElementById('code').value.trim();
@@ -302,12 +358,25 @@ function showAST() {
 }
 
 // ═════════════════════════════════════════════════════════
-//  STEP MODE  –  one statement at a time
+//  STEP MODE — execute one statement at a time
+//
+//  Lets you walk through the program manually, seeing the
+//  tokens, AST, and trace for each individual statement.
+//  Variables accumulate across steps using a shared Evaluator.
 // ═════════════════════════════════════════════════════════
-let _stepStmts = [], _stepIdx = 0, _stepEv = null, _stepping = false;
 
+// State for step mode
+let _stepStmts = []; // the list of top-level statements (from the parse)
+let _stepIdx   = 0;  // index of the next statement to execute
+let _stepEv    = null; // the persistent Evaluator (env carries over between steps)
+let _stepping  = false; // whether step mode is currently active
+
+// doStep — called by the "Step" button
+// First call: parses the program and initializes step mode
+// Subsequent calls: execute the next statement
 function doStep() {
   if (!_stepping) {
+    // First press — parse the whole program and enter step mode
     const src = document.getElementById('code').value.trim();
     if (!src) return;
     clearOutput();
@@ -319,7 +388,7 @@ function doStep() {
     _stepStmts = ast.stmts;
     if (!_stepStmts.length) return;
     _stepIdx  = 0;
-    _stepEv   = new Evaluator();
+    _stepEv   = new Evaluator(); // shared across all steps so env persists
     _stepping = true;
     document.getElementById('resetStepBtn').disabled = false;
     _updateStep();
@@ -329,33 +398,39 @@ function doStep() {
 
   clearOutput();
   const stmt    = _stepStmts[_stepIdx];
-  const stmtSrc = nodeToSrc(stmt);
+  const stmtSrc = nodeToSrc(stmt); // convert the single AST node back to source text
 
   try {
+    // Show tokens and AST for just this one statement
     renderTokens(new Lexer(stmtSrc).tokenize().filter(t => t.type !== TT.EOF));
     _displayAST(stmt);
+    // Execute only this statement (trace and prints reset each step)
     _stepEv.clearTrace();
     _stepEv.prints = [];
     _stepEv.eval(stmt);
     document.getElementById('traceOut').textContent = _stepEv.trace.join('\n');
     showPrints(_stepEv.prints);
-    showResult(_stepEv.env);
+    showResult(_stepEv.env);   // show accumulated variables so far
     updateVarsPanel(_stepEv.env);
   } catch (e) {
     showErrors([e], stmtSrc);
   }
 
   _stepIdx++;
-  _updateStep();
+  _updateStep(); // update button label and step counter
 }
 
+// resetStep — exits step mode and clears all output
 function resetStep() { _exitStep(); clearOutput(); }
 
+// _exitStep — internal: resets all step-mode state variables
 function _exitStep() {
   _stepping = false; _stepStmts = []; _stepIdx = 0; _stepEv = null;
   _updateStep();
 }
 
+// _updateStep — updates the Step button label and the status line
+// to show which statement comes next
 function _updateStep() {
   const lbl = document.getElementById('stmtLabel');
   const btn = document.getElementById('stepBtn');
@@ -375,7 +450,9 @@ function _updateStep() {
   rst.disabled = false;
 }
 
-// ── Examples dropdown ─────────────────────────────────────
+// ── Examples dropdown ─────────────────────────────────────────
+// Populates the select element with example programs on page load.
+// Selecting an example loads its code into the editor and runs it immediately.
 (function initExamples() {
   const sel = document.getElementById('exampleSelect');
   EXAMPLES.forEach((ex, i) => {
@@ -386,16 +463,18 @@ function _updateStep() {
   sel.addEventListener('change', e => {
     if (e.target.value === '') return;
     document.getElementById('code').value = EXAMPLES[+e.target.value].code;
-    e.target.value = '';
+    e.target.value = ''; // reset dropdown so the same option can be selected again
     run();
   });
 })();
 
+// Ctrl+Enter (or Cmd+Enter on Mac) triggers run() from the code textarea
 document.getElementById('code').addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); run(); }
 });
 
-// ── DB: save program from UI ──────────────────────────────
+// ── DB save from UI ───────────────────────────────────────────
+// dbSaveCurrent — reads the program name field and calls the database save function
 function dbSaveCurrent() {
   const name = document.getElementById('progName').value;
   const code = document.getElementById('code').value.trim();
@@ -404,13 +483,14 @@ function dbSaveCurrent() {
   document.getElementById('progName').value = '';
 }
 
-// allow Enter in the program-name field to save
+// Allow pressing Enter in the program name field to save instead of clicking the button
 document.getElementById('progName')?.addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); dbSaveCurrent(); }
 });
 
-
-// ── Init ──────────────────────────────────────────────────
+// ── Page initialization ───────────────────────────────────────
+// On load: disable reset button (not in step mode yet), load the first example,
+// initialize the database, then run immediately to show a result right away.
 document.getElementById('resetStepBtn').disabled = true;
 document.getElementById('code').value = EXAMPLES[0].code;
-dbInit().then(() => run()).catch(() => run());
+dbInit().then(() => run()).catch(() => run()); // run() even if DB fails to load

@@ -1,17 +1,58 @@
 "use strict";
 // Depends on: TT, InterpError  (lexer.js)
 
-// ── AST Node classes ──────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  PARSER (Syntactic Analysis — Stage 2 of the pipeline)
+//
+//  Job: take the flat token list from the Lexer and build an
+//  Abstract Syntax Tree (AST) — a tree that represents the
+//  structure and meaning of the program.
+//
+//  Uses Recursive Descent Parsing: each grammar rule is a method.
+//  Operator precedence is enforced by the call hierarchy:
+//
+//    expr (lowest precedence: comparisons)
+//      └─ addExpr  (add, sub)
+//           └─ term  (mult, div, mod)
+//                └─ power  (pow)
+//                     └─ factor  (highest: numbers, variables, built-ins)
+// ═══════════════════════════════════════════════════════════════
+
+// ── AST Node classes ──────────────────────────────────────────
+// Each class represents one kind of node in the syntax tree.
+// The 'type' string lets the Evaluator know what to do with it.
+
+// A literal number, e.g. 42 or 3.14
 class NumberNode  { constructor(v,col=0)      { this.type='Number';  this.value=v;  this.col=col; } }
+
+// A variable reference, e.g. myVar (the name is looked up at eval time)
 class IdentNode   { constructor(n,col=0)      { this.type='Ident';   this.name=n;   this.col=col; } }
+
+// Unary minus, e.g. -x  (op is always '-', operand is another expression node)
 class UnaryNode   { constructor(op,e,col=0)   { this.type='Unary';   this.op=op;    this.operand=e; this.col=col; } }
+
+// A binary operation, e.g. x add y  (left and right are child expression nodes)
 class BinOpNode   { constructor(l,op,r,col=0) { this.type='BinOp';   this.left=l;   this.op=op; this.right=r; this.col=col; } }
+
+// A built-in function call, e.g. sqrt(x)  (fn = function name, arg = expression node)
 class BuiltinNode { constructor(fn,a,col=0)   { this.type='Builtin'; this.fn=fn;    this.arg=a;    this.col=col; } }
+
+// Variable assignment statement, e.g. x = expr;
 class AssignNode  { constructor(nm,e,col=0)        { this.type='Assign'; this.name=nm;    this.expr=e;               this.col=col; } }
+
+// Print statement, e.g. print(expr);
 class PrintNode   { constructor(e,col=0)            { this.type='Print';  this.expr=e;                                this.col=col; } }
+
+// If statement: executes body only when cond is non-zero
 class IfNode      { constructor(c,b,col=0)          { this.type='If';     this.cond=c;    this.body=b;               this.col=col; } }
+
+// While loop: repeats body as long as cond is non-zero
 class WhileNode   { constructor(c,b,col=0)          { this.type='While';  this.cond=c;    this.body=b;               this.col=col; } }
+
+// For loop: for(varName = start to end){ body }
 class ForNode     { constructor(v,s,e,b,col=0)      { this.type='For';    this.varName=v; this.start=s; this.end=e;  this.body=b;  this.col=col; } }
+
+// Root node: holds the list of all top-level statements, and any parse errors
 class ProgramNode { constructor(stmts)              { this.type='Program'; this.stmts=stmts; this.parseErrors=[]; } }
 
 // ─────────────────────────────────────────────────────────
@@ -35,10 +76,17 @@ class ProgramNode { constructor(stmts)              { this.type='Program'; this.
 //                               sqrt abs floor ceil gt lt eq if print
 // ─────────────────────────────────────────────────────────
 class Parser {
-  constructor(tokens) { this.tokens = tokens; this.pos = 0; this._errors = []; }
+  constructor(tokens) {
+    this.tokens  = tokens; // the flat token array from the Lexer
+    this.pos     = 0;      // index of the token we are currently looking at
+    this._errors = [];     // errors found inside block bodies (while/for/if)
+  }
 
+  // cur — returns the token at the current position without consuming it
   get cur() { return this.tokens[this.pos]; }
 
+  // consume — takes the current token and moves the position forward.
+  // If 'expected' is provided and the token type doesn't match, throws an error.
   consume(expected) {
     const t = this.tokens[this.pos++];
     if (expected && t.type !== expected)
@@ -47,21 +95,28 @@ class Parser {
     return t;
   }
 
-  // factor → NUMBER | IDENT | '(' expr ')' | '-' factor | builtin '(' expr ')'
+  // ── factor ── (highest precedence — tightest binding)
+  // Handles: numbers, variable names, parenthesized expressions,
+  //          unary minus, and built-in function calls.
   factor() {
     const t = this.cur;
+    // A literal number → NumberNode
     if (t.type === TT.NUMBER) { this.consume(); return new NumberNode(t.value, t.col); }
+    // A variable name → IdentNode
     if (t.type === TT.IDENT)  { this.consume(); return new IdentNode(t.value,  t.col); }
+    // Parenthesized sub-expression: (expr)
     if (t.type === TT.LPAREN) {
       this.consume(TT.LPAREN);
-      const n = this.expr();
+      const n = this.expr();        // recursively parse the inner expression
       this.consume(TT.RPAREN);
       return n;
     }
+    // Unary minus: -factor
     if (t.type === TT.SUB) {
       const col = t.col; this.consume();
       return new UnaryNode('-', this.factor(), col);
     }
+    // Built-in functions: sqrt(expr), abs(expr), floor(expr), ceil(expr)
     if ([TT.SQRT, TT.ABS, TT.FLOOR, TT.CEIL].includes(t.type)) {
       const col = t.col; this.consume();
       this.consume(TT.LPAREN);
@@ -73,7 +128,8 @@ class Parser {
       `Expected number, variable, or '(' — got '${t.value || t.type}'`, t.col);
   }
 
-  // power → factor ('pow' factor)?
+  // ── power ── handles the 'pow' operator (e.g. base pow exp)
+  // Only one pow per expression (no chaining without parentheses)
   power() {
     let n = this.factor();
     if (this.cur.type === TT.POW) {
@@ -83,7 +139,7 @@ class Parser {
     return n;
   }
 
-  // term → power ( ('mult'|'div'|'mod') power )*
+  // ── term ── handles mult, div, mod (left-to-right, all equal precedence)
   term() {
     let n = this.power();
     while ([TT.MULT, TT.DIV, TT.MOD].includes(this.cur.type)) {
@@ -93,7 +149,7 @@ class Parser {
     return n;
   }
 
-  // addExpr → term ( ('add'|'sub') term )*
+  // ── addExpr ── handles add and sub (lower precedence than mult/div)
   addExpr() {
     let n = this.term();
     while (this.cur.type === TT.ADD || this.cur.type === TT.SUB) {
@@ -103,7 +159,9 @@ class Parser {
     return n;
   }
 
-  // expr → addExpr ( ('gt'|'lt'|'eq') addExpr )?
+  // ── expr ── handles comparison operators (lowest expression precedence)
+  // gt, lt, eq return 1 (true) or 0 (false) at evaluation time
+  // Only one comparison allowed per expression (no chaining like a gt b gt c)
   expr() {
     let n = this.addExpr();
     if ([TT.GT, TT.LT, TT.EQOP].includes(this.cur.type)) {
@@ -113,21 +171,24 @@ class Parser {
     return n;
   }
 
-  // statement → IDENT '=' expr ';'  |  print(expr);  |  if(expr){ stmts }
+  // ── statement ── parses one complete statement
+  // A statement is a top-level action: assignment, print, if, while, for.
   statement() {
     const t = this.cur;
 
-    // while (expr) { stmts }
+    // ── while (expr) { statements } ──
     if (t.type === TT.WHILE) {
       this.consume();
       this.consume(TT.LPAREN);
-      const cond = this.expr();
+      const cond = this.expr();       // the loop condition
       this.consume(TT.RPAREN);
       this.consume(TT.LBRACE);
       const body = [];
+      // Parse statements inside the braces until we hit } or end of input
       while (this.cur.type !== TT.RBRACE && this.cur.type !== TT.EOF) {
         try { body.push(this.statement()); }
         catch (e) {
+          // Error recovery: skip to the next ; or } so parsing can continue
           this._errors.push(e);
           while (![TT.SEMI, TT.RBRACE, TT.EOF].includes(this.cur.type)) this.consume();
           if (this.cur.type === TT.SEMI) this.consume();
@@ -137,15 +198,15 @@ class Parser {
       return new WhileNode(cond, body, t.col);
     }
 
-    // for (ident = start to end) { stmts }
+    // ── for (ident = start to end) { statements } ──
     if (t.type === TT.FOR) {
       this.consume();
       this.consume(TT.LPAREN);
-      const varTok = this.consume(TT.IDENT);
+      const varTok = this.consume(TT.IDENT); // the loop variable name
       this.consume(TT.EQUALS);
-      const start = this.expr();
+      const start = this.expr();             // starting value
       this.consume(TT.TO);
-      const end = this.expr();
+      const end = this.expr();               // ending value (inclusive)
       this.consume(TT.RPAREN);
       this.consume(TT.LBRACE);
       const body = [];
@@ -161,11 +222,11 @@ class Parser {
       return new ForNode(varTok.value, start, end, body, t.col);
     }
 
-    // if (expr) { stmts }
+    // ── if (expr) { statements } ──
     if (t.type === TT.IF) {
       this.consume();
       this.consume(TT.LPAREN);
-      const cond = this.expr();
+      const cond = this.expr();   // the condition — non-zero means true
       this.consume(TT.RPAREN);
       this.consume(TT.LBRACE);
       const body = [];
@@ -182,8 +243,9 @@ class Parser {
       return new IfNode(cond, body, t.col);
     }
 
-    // print(expr);
+    // ── print(expr); ──
     if (t.type === TT.PRINT) {
+      // Prevent someone from writing: print = 5;  ('print' is reserved)
       if (this.tokens[this.pos + 1]?.type === TT.EQUALS)
         throw new InterpError(`Error: 'print' is a system keyword`, t.col);
       this.consume();
@@ -194,21 +256,25 @@ class Parser {
       return new PrintNode(e, t.col);
     }
 
-    // Reject operator keywords in variable-name position
+    // Guard: reject operator keywords used as variable names (e.g. add = 5;)
     const SYS = [TT.ADD, TT.SUB, TT.MULT, TT.DIV, TT.MOD, TT.POW,
                  TT.SQRT, TT.ABS, TT.FLOOR, TT.CEIL, TT.GT, TT.LT, TT.EQOP,
                  TT.WHILE, TT.FOR, TT.TO];
     if (SYS.includes(t.type))
       throw new InterpError(`Error: '${t.value}' is a system keyword`, t.col);
 
-    // IDENT = expr ;
-    const nm = this.consume(TT.IDENT);
+    // ── IDENT = expr ; ── (variable assignment)
+    const nm = this.consume(TT.IDENT); // the variable name
     this.consume(TT.EQUALS);
-    const e = this.expr();
+    const e = this.expr();             // the value expression
     this.consume(TT.SEMI);
     return new AssignNode(nm.value, e, nm.col);
   }
 
+  // parse — top-level entry point.
+  // Calls statement() in a loop until EOF.
+  // On error: skips to the next ';' and keeps going (error recovery),
+  // so one bad line doesn't break the rest of the program.
   parse() {
     const stmts = [], errors = [];
     while (this.cur.type !== TT.EOF) {
@@ -216,18 +282,22 @@ class Parser {
         stmts.push(this.statement());
       } catch (e) {
         errors.push(e);
+        // Skip tokens until the next statement boundary
         while (this.cur.type !== TT.SEMI && this.cur.type !== TT.EOF)
           this.consume();
         if (this.cur.type === TT.SEMI) this.consume();
       }
     }
     const prog = new ProgramNode(stmts);
-    prog.parseErrors = [...errors, ...this._errors];
+    prog.parseErrors = [...errors, ...this._errors]; // merge all collected errors
     return prog;
   }
 }
 
-// ── AST → source string (for step mode re-tokenization) ──
+// ── nodeToSrc / exprToSrc ─────────────────────────────────────
+// Converts an AST node back into a source-code string.
+// Used by Step Mode: each statement node is re-tokenized so the
+// token panel shows only the tokens for that one statement.
 function nodeToSrc(node) {
   switch (node.type) {
     case 'Assign': return `${node.name} = ${exprToSrc(node.expr)};`;
@@ -250,9 +320,12 @@ function exprToSrc(node) {
   }
 }
 
-// ── AST text pretty-printer ───────────────────────────────
+// ── prettyAST ─────────────────────────────────────────────────
+// Converts the AST into a readable indented text representation.
+// This is what appears in the "Text" view of the AST panel.
+// depth controls indentation: each level adds 2 spaces.
 function prettyAST(node, depth = 0) {
-  const p = '  '.repeat(depth);
+  const p = '  '.repeat(depth); // indentation prefix for child lines
   switch (node.type) {
     case 'Program':
       return `Program[\n${node.stmts.map(s => p+'  '+prettyAST(s,depth+1)).join('\n')}\n${p}]`;
