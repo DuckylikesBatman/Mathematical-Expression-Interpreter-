@@ -12,11 +12,15 @@
   <header>
     <h1>Mathematical Expression Interpreter</h1>
     <div class="pipeline-bar">
-      <span class="stage-pill s1">1 &nbsp;Lexical Analysis</span>
+      <span class="stage-pill source"><span class="stage-num">1</span> Source</span>
       <span class="arr">&#8594;</span>
-      <span class="stage-pill s2">2 &nbsp;Syntactic Analysis</span>
+      <span class="stage-pill s1"><span class="stage-num">2</span> Lexer</span>
       <span class="arr">&#8594;</span>
-      <span class="stage-pill s3">3 &nbsp;Evaluation</span>
+      <span class="stage-pill s2"><span class="stage-num">3</span> Parser</span>
+      <span class="arr">&#8594;</span>
+      <span class="stage-pill s3"><span class="stage-num">4</span> Evaluator</span>
+      <span class="arr">&#8594;</span>
+      <span class="stage-pill s4"><span class="stage-num">5</span> UI + DB</span>
     </div>
   </header>
 
@@ -164,11 +168,11 @@ Comments   : # text to end of line</pre>
         <span class="card-sub">— tables: runs, programs</span>
       </span>
       <div class="pipeline-bar">
-        <span class="stage-pill s1">1 &nbsp;Lexical</span>
+        <span class="stage-pill s1"><span class="stage-num">1</span> Lexical</span>
         <span class="arr">&#8594;</span>
-        <span class="stage-pill s2">2 &nbsp;Syntactic</span>
+        <span class="stage-pill s2"><span class="stage-num">2</span> Syntactic</span>
         <span class="arr">&#8594;</span>
-        <span class="stage-pill s3">3 &nbsp;Evaluation</span>
+        <span class="stage-pill s3"><span class="stage-num">3</span> Evaluation</span>
       </div>
     </div>
 
